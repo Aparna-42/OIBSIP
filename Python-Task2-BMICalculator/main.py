@@ -1,5 +1,6 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
+import sqlite3
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from bmi_logic import calculate_bmi, get_bmi_category
@@ -503,6 +504,73 @@ def build_history_page():
         value = search_entry.get().strip()
         load_records(value if value else None)
 
+    def delete_selected():
+        selected = table.selection()
+
+        if not selected:
+            messagebox.showwarning(
+                "No Selection",
+                "Please select a BMI record to delete."
+            )
+            return
+
+        values = table.item(selected[0], "values")
+
+        confirm = messagebox.askyesno(
+            "Delete Record",
+            f"Delete the selected BMI record for '{values[0]}'?"
+        )
+
+        if not confirm:
+            return
+
+        try:
+            connection = sqlite3.connect("bmi_tracker.db")
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                DELETE FROM bmi_records
+                WHERE id = (
+                    SELECT id FROM bmi_records
+                    WHERE name = ?
+                      AND weight = ?
+                      AND height = ?
+                      AND bmi = ?
+                      AND category = ?
+                      AND recorded_at = ?
+                    ORDER BY id DESC
+                    LIMIT 1
+                )
+                """,
+                (
+                    values[0],
+                    float(values[1]),
+                    float(values[2]),
+                    float(values[3]),
+                    values[4],
+                    values[5]
+                )
+            )
+
+            connection.commit()
+            connection.close()
+
+            load_records(
+                search_entry.get().strip() or None
+            )
+
+            messagebox.showinfo(
+                "Record Deleted",
+                "The selected BMI record was deleted successfully."
+            )
+
+        except (sqlite3.Error, ValueError):
+            messagebox.showerror(
+                "Delete Error",
+                "Could not delete the selected BMI record."
+            )
+
     button(
         search_card, "Search", search_records,
         primary=True, width=10
@@ -511,6 +579,11 @@ def build_history_page():
     button(
         search_card, "Show All", lambda: load_records(),
         width=10
+    ).pack(side="left", padx=(0, 8), pady=10)
+
+    button(
+        search_card, "Delete Selected", delete_selected,
+        width=15
     ).pack(side="left", padx=(0, 15), pady=10)
 
     search_entry.bind("<Return>", lambda event: search_records())
@@ -659,9 +732,19 @@ def build_about_page():
         justify="center"
     ).pack(pady=10)
 
-    
+    tk.Label(
+        card,
+        text="Oasis Infobyte • Python Programming Internship • Task 2",
+        font=("Segoe UI", 10, "bold"),
+        bg=CARD, fg=PRIMARY
+    ).pack(pady=20)
 
-    
+    tk.Label(
+        card,
+        text="Developed by Aparna Sunil T P",
+        font=("Segoe UI", 10),
+        bg=CARD, fg=MUTED
+    ).pack()
 
 
 # -----------------------------
@@ -796,6 +879,7 @@ tk.Label(
     font=("Segoe UI", 9),
     bg="#F7FFFB", fg=MUTED
 ).pack(side="left", padx=25)
+
 
 
 show_page(build_calculator_page, "calculator")
