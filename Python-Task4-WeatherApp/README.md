@@ -63,9 +63,9 @@ Python-Task4-WeatherApp/
 │   ├── 04_fahrenheit.png
 │   ├── 05_invalid_city.png
 │   └── 06_invalid_api_key.png
-│
 ├── main.py
 ├── weather_api.py
+├── weathericon.png
 ├── requirements.txt
 ├── .gitignore
 ├── .env                 # Local only, not uploaded to GitHub
