@@ -113,12 +113,29 @@ The application displays saved records in a Tkinter `Treeview` table. Users can 
 
 Matplotlib is used to display a line graph of a selected user's BMI measurements over time. The graph shows the recorded BMI values and their corresponding dates and times.
 
+## Screenshots
+
+![Main BMI Tracker](screenshots/01_main_gui.png)
+
+![Normal BMI](screenshots/02_normal_bmi.png)
+
+![Overweight BMI](screenshots/03_overweight_bmi.png)
+
+![BMI History](screenshots/04_history.png)
+
+![History Search](screenshots/05_history_search.png)
+
+![BMI Trend](screenshots/06_bmi_trend.png)
+
+![Input Validation](screenshots/07_input_validation.png)
+
+
 ## Installation and Setup
 
 1. Clone the repository:
 
    ```bash
-   git clone <your-github-repository-url>
+   git clone https://github.com/Aparna-42/OIBSIP.git
 
 2. Open the project folder:
    
