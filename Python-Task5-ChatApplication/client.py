@@ -19,8 +19,10 @@ class ChatClient:
     def __init__(self, root):
         self.root = root
         self.root.title("ChatNest")
-        self.root.geometry("1000x650")
-        self.root.minsize(850, 550)
+        screen_width = self.root.winfo_screenwidth()
+        window_width = max(680, min(1000, (screen_width // 2) - 10))
+        self.root.geometry(f"{window_width}x650")
+        self.root.minsize(680, 550)
 
         self.socket = None
         self.username = None
@@ -585,6 +587,16 @@ class ChatClient:
 
 
         # --------------------------------------------------
+        # DELETE ROOM RESULT
+        # --------------------------------------------------
+
+        elif message_type == "room_delete_result":
+            messagebox.showerror(
+                "Delete Room",
+                data.get("message", "Unable to delete room.")
+            )
+
+        # --------------------------------------------------
         # DELETE MESSAGE RESULT
         # --------------------------------------------------
 
@@ -599,10 +611,14 @@ class ChatClient:
                     "Message deleted for you."
                 )
 
-                self.send_data({
-                    "action": "join_room",
-                    "room": self.current_room
-                })
+                message_id = data.get("message_id")
+                if message_id and hasattr(self, "chat_text"):
+                    tag = f"message_{message_id}"
+                    ranges = self.chat_text.tag_ranges(tag)
+                    if ranges:
+                        self.chat_text.config(state="normal")
+                        self.chat_text.delete(ranges[0], ranges[-1])
+                        self.chat_text.config(state="disabled")
 
             else:
 
@@ -617,19 +633,43 @@ class ChatClient:
         elif message_type == "clear_result":
             if data.get("success"):
                 self.selected_message_id = None
+                self.clear_chat()
                 messagebox.showinfo(
                     "Chat Cleared",
                     "Chat cleared for you."
                 )
-                self.send_data({
-                    "action": "join_room",
-                    "room": self.current_room
-                })
             else:
                 messagebox.showerror(
                     "Clear Chat",
                     data.get("message", "Unable to clear chat.")
                 )       
+        # --------------------------------------------------
+        # ROOM DELETED
+        # --------------------------------------------------
+
+        elif message_type == "room_deleted":
+            deleted_room = data.get("room", "")
+            new_room = data.get("new_room", "General")
+            rooms = data.get("rooms", [])
+
+            # Update the room list from the same response instead of making
+            # another request immediately. This keeps room deletion stable.
+            if rooms:
+                self.update_room_list(rooms)
+
+            if data.get("notify"):
+                messagebox.showinfo(
+                    "Room Deleted",
+                    data.get("message", "Room deleted successfully.")
+                )
+
+            # If this client was inside the deleted room, move it to General.
+            if self.current_room == deleted_room:
+                self.send_data({
+                    "action": "join_room",
+                    "room": new_room
+                })
+
         # --------------------------------------------------
         # ROOM CHANGED
         # --------------------------------------------------
@@ -799,7 +839,26 @@ class ChatClient:
         ).pack(
             fill="x",
             padx=14,
-            pady=(15, 12)
+            pady=(15, 6)
+        )
+
+        tk.Button(
+            sidebar,
+            text="🗑  Delete Room",
+            command=self.delete_current_room,
+            bg="#FEE2E2",
+            fg="#DC2626",
+            activebackground="#FECACA",
+            activeforeground="#B91C1C",
+            relief="flat",
+            bd=0,
+            font=("Segoe UI", 10, "bold"),
+            cursor="hand2",
+            pady=8
+        ).pack(
+            fill="x",
+            padx=14,
+            pady=(0, 12)
         )
 
         # Search
@@ -1563,6 +1622,31 @@ class ChatClient:
         self.send_data({
             "action": "create_room",
             "room": room_name
+        })
+
+    # ======================================================
+    # DELETE ROOM
+    # ======================================================
+
+    def delete_current_room(self):
+        if self.current_room == "General":
+            messagebox.showwarning(
+                "Delete Room",
+                "The General room cannot be deleted."
+            )
+            return
+
+        confirm = messagebox.askyesno(
+            "Delete Room",
+            f"Delete #{self.current_room} and all its messages?"
+        )
+
+        if not confirm:
+            return
+
+        self.send_data({
+            "action": "delete_room",
+            "room": self.current_room
         })
 
     # ======================================================

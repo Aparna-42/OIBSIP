@@ -7,6 +7,7 @@ from database import (
     register_user,
     get_rooms,
     create_room,
+    delete_room,
     get_room_id,
     save_message,
     get_message_history,
@@ -386,6 +387,7 @@ def handle_client(client_socket, address):
                     {
                         "type": "delete_result",
                         "success": success,
+                        "message_id": int(message_id),
                         "message": (
                             "Message deleted for you."
                             if success
@@ -468,6 +470,85 @@ def handle_client(client_socket, address):
                         "message": message
                     }
                 )
+
+            # ------------------------------------------------
+            # DELETE ROOM
+            # ------------------------------------------------
+
+            elif action == "delete_room":
+
+                room_name = request.get("room", "").strip()
+
+                if room_name == "General":
+                    send_data(
+                        client_socket,
+                        {
+                            "type": "room_delete_result",
+                            "success": False,
+                            "message": "The General room cannot be deleted."
+                        }
+                    )
+                    continue
+
+                if room_name not in get_rooms():
+                    send_data(
+                        client_socket,
+                        {
+                            "type": "room_delete_result",
+                            "success": False,
+                            "message": "Room does not exist."
+                        }
+                    )
+                    continue
+
+                with clients_lock:
+                    affected_clients = [
+                        sock for sock, info in clients.items()
+                        if info["room"] == room_name
+                    ]
+                    all_clients = list(clients.keys())
+
+                success, message = delete_room(room_name)
+
+                if success:
+                    # Send ONE response to each affected client.
+                    # This prevents multiple TCP messages from being combined
+                    # and avoids the Connection Lost problem during room deletion.
+                    remaining_rooms = get_rooms()
+
+                    for sock in affected_clients:
+                        send_data(
+                            sock,
+                            {
+                                "type": "room_deleted",
+                                "room": room_name,
+                                "new_room": "General",
+                                "rooms": remaining_rooms,
+                                "notify": sock == client_socket,
+                                "message": message
+                            }
+                        )
+
+                    # Clients that were not inside the deleted room only need
+                    # the updated room list.
+                    for sock in all_clients:
+                        if sock not in affected_clients:
+                            send_data(
+                                sock,
+                                {
+                                    "type": "rooms",
+                                    "rooms": remaining_rooms
+                                }
+                            )
+                else:
+                    send_data(
+                        client_socket,
+                        {
+                            "type": "room_delete_result",
+                            "success": False,
+                            "message": message
+                        }
+                    )
 
             # ------------------------------------------------
             # JOIN ROOM

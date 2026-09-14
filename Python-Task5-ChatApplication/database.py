@@ -336,6 +336,42 @@ def hide_message_for_user(username, message_id):
     connection.close()
 
     return True
+
+def delete_room(room_name):
+    if room_name == "General":
+        return False, "The General room cannot be deleted."
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute("SELECT id FROM rooms WHERE name = ?", (room_name,))
+        result = cursor.fetchone()
+
+        if not result:
+            return False, "Room does not exist."
+
+        room_id = result[0]
+
+        cursor.execute("""
+            DELETE FROM hidden_messages
+            WHERE message_id IN (
+                SELECT id FROM messages WHERE room_id = ?
+            )
+        """, (room_id,))
+
+        cursor.execute("DELETE FROM messages WHERE room_id = ?", (room_id,))
+        cursor.execute("DELETE FROM rooms WHERE id = ?", (room_id,))
+
+        connection.commit()
+        return True, "Room deleted successfully."
+
+    except sqlite3.Error:
+        connection.rollback()
+        return False, "Unable to delete room."
+
+    finally:
+        connection.close()
 if __name__ == "__main__":
     initialize_database()
     print("Database initialized successfully.")
